@@ -59,8 +59,8 @@ export function DoctorEarnings({ earnings = {}, payouts = [] }) {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            All consultations on this platform are provided free of charge. 
-            There are no earnings or payouts as appointments are completely free for patients.
+            Consultation fees are paid directly to the Doctor,
+            Paybill or Till number will be shared with you after your consultation to complete payment.
           </p>
         </CardContent>
       </Card>

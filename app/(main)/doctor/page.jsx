@@ -3,10 +3,11 @@ import { getDoctorAppointments, getDoctorAvailability } from "@/actions/doctor";
 import { AvailabilitySettings } from "./_components/availability-settings";
 import { getCurrentUser } from "@/actions/onboarding";
 import { redirect } from "next/navigation";
-import { Calendar, Clock, DollarSign } from "lucide-react";
+import { Calendar, Clock, CalendarDays, ClipboardList } from "lucide-react";
 import DoctorAppointmentsList from "./_components/appointments-list";
 import { getDoctorEarnings, getDoctorPayouts } from "@/actions/payout";
 import { DoctorEarnings } from "./_components/doctor-earnings";
+import { PatientRecords } from "./_components/patient-records";
 
 export default async function DoctorDashboardPage() {
   const user = await getCurrentUser();
@@ -19,12 +20,12 @@ export default async function DoctorDashboardPage() {
       getDoctorPayouts(),
     ]);
 
-  //   // Redirect if not a doctor
+  // Redirect if not a doctor
   if (user?.role !== "DOCTOR") {
     redirect("/onboarding");
   }
 
-  // If already verified, redirect to dashboard
+  // If not verified, redirect to verification page
   if (user?.verificationStatus !== "VERIFIED") {
     redirect("/doctor/verification");
   }
@@ -39,9 +40,10 @@ export default async function DoctorDashboardPage() {
           value="earnings"
           className="flex-1 md:flex md:items-center md:justify-start md:px-4 md:py-3 w-full"
         >
-          <DollarSign className="h-4 w-4 mr-2 hidden md:inline" />
-          <span>Earnings</span>
+          <CalendarDays className="h-4 w-4 mr-2 hidden md:inline" />
+          <span>Monthly Records</span>
         </TabsTrigger>
+
         <TabsTrigger
           value="appointments"
           className="flex-1 md:flex md:items-center md:justify-start md:px-4 md:py-3 w-full"
@@ -49,6 +51,7 @@ export default async function DoctorDashboardPage() {
           <Calendar className="h-4 w-4 mr-2 hidden md:inline" />
           <span>Appointments</span>
         </TabsTrigger>
+
         <TabsTrigger
           value="availability"
           className="flex-1 md:flex md:items-center md:justify-start md:px-4 md:py-3 w-full"
@@ -56,21 +59,36 @@ export default async function DoctorDashboardPage() {
           <Clock className="h-4 w-4 mr-2 hidden md:inline" />
           <span>Availability</span>
         </TabsTrigger>
+
+        <TabsTrigger
+          value="records"
+          className="flex-1 md:flex md:items-center md:justify-start md:px-4 md:py-3 w-full"
+        >
+          <ClipboardList className="h-4 w-4 mr-2 hidden md:inline" />
+          <span>Patient Records</span>
+        </TabsTrigger>
       </TabsList>
+
       <div className="md:col-span-3">
         <TabsContent value="appointments" className="border-none p-0">
           <DoctorAppointmentsList
             appointments={appointmentsData.appointments || []}
           />
         </TabsContent>
+
         <TabsContent value="availability" className="border-none p-0">
           <AvailabilitySettings slots={availabilityData.slots || []} />
         </TabsContent>
+
         <TabsContent value="earnings" className="border-none p-0">
           <DoctorEarnings
             earnings={earningsData.earnings || {}}
             payouts={payoutsData.payouts || []}
           />
+        </TabsContent>
+
+        <TabsContent value="records" className="border-none p-0">
+          <PatientRecords />
         </TabsContent>
       </div>
     </Tabs>

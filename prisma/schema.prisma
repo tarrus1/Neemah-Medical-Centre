@@ -36,6 +36,7 @@ model User {
   availabilities      Availability[]
   transactions        CreditTransaction[]
   payouts             Payout[]
+  patientVisits       PatientVisit[]   // ← ADDED THIS LINE
 }
 
 enum UserRole {
@@ -74,15 +75,15 @@ model Appointment {
   patient           User     @relation("PatientAppointments", fields: [patientId], references: [id])
   doctorId          String
   doctor            User     @relation("DoctorAppointments", fields: [doctorId], references: [id])
-  startTime         DateTime // Start time of appointment
-  endTime           DateTime // End time of appointment
+  startTime         DateTime
+  endTime           DateTime
   status            AppointmentStatus @default(SCHEDULED)
   notes             String?  @db.Text
   patientDescription String? @db.Text
     
   // Video session fields
-  videoSessionId    String?  // Vonage Video API Session ID
-  videoSessionToken String?  // Optional: Can store tokens if needed
+  videoSessionId    String?
+  videoSessionToken String?
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -101,32 +102,32 @@ model CreditTransaction {
   id                String   @id @default(uuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount            Int      // Positive for additions, negative for usage
+  amount            Int
   type              TransactionType
-  packageId         String?  // Reference to which package was purchased
+  packageId         String?
   createdAt         DateTime @default(now())
 }
 
 enum TransactionType {
-  CREDIT_PURCHASE     // Credits purchased through Clerk Billing
-  APPOINTMENT_DEDUCTION // Credit used for appointment
-  ADMIN_ADJUSTMENT      // Manual adjustment by admin
+  CREDIT_PURCHASE
+  APPOINTMENT_DEDUCTION
+  ADMIN_ADJUSTMENT
 }
 
 model Payout {
   id              String        @id @default(uuid())
   doctorId        String
   doctor          User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  amount          Float         // Total payout amount in USD
-  credits         Int           // Number of credits being paid out
-  platformFee     Float         // Platform fee deducted (2 USD per credit)
-  netAmount       Float         // Amount doctor receives (8 USD per credit)
-  paypalEmail     String        // Doctor's PayPal email for payout
+  amount          Float
+  credits         Int
+  platformFee     Float
+  netAmount       Float
+  paypalEmail     String
   status          PayoutStatus  @default(PROCESSING)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  processedAt     DateTime?     // When admin marked it as processed
-  processedBy     String?       // Admin who processed it
+  processedAt     DateTime?
+  processedBy     String?
 
   @@index([status, createdAt])
   @@index([doctorId, status])
@@ -135,4 +136,34 @@ model Payout {
 enum PayoutStatus {
   PROCESSING
   PROCESSED
+}
+
+// ============================================
+// NEW MODEL FOR PHYSICAL PATIENT RECORDS
+// ============================================
+
+model PatientVisit {
+  id              String      @id @default(uuid())
+  fullName        String
+  idNumber        String?     // ← NEW
+  phoneNumber     String?     // ← NEW
+  triageNotes     String?     @db.Text
+  doctorNotes     String?     @db.Text
+  laboratoryNotes String?     @db.Text
+  pharmacyNotes   String?     @db.Text
+  status          VisitStatus @default(REGISTERED)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  doctorId        String?
+  doctor          User?       @relation(fields: [doctorId], references: [id])
+}
+
+enum VisitStatus {
+  REGISTERED
+  TRIAGE
+  DOCTOR
+  LABORATORY
+  PHARMACY
+  COMPLETED
 }

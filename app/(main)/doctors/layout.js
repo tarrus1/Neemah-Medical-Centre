@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Find Doctors - MediMeet",
+  title: "Services - Neemah Medical",
   description: "Browse and book appointments with top healthcare providers",
 };
 
