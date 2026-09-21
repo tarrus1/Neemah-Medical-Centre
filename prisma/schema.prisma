@@ -11,32 +11,32 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(uuid())
-  clerkUserId       String    @unique
-  email             String    @unique
-  name              String?
-  imageUrl          String?
-  role              UserRole  @default(UNASSIGNED)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Patient-specific fields (keeping credits for backward compatibility but not used)
-  credits           Int       @default(0)
-  
+  id          String   @id @default(uuid())
+  clerkUserId String   @unique
+  email       String   @unique
+  name        String?
+  imageUrl    String?
+  role        UserRole @default(UNASSIGNED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Patient-specific fields
+  credits Int @default(0)
+
   // Doctor-specific fields
-  specialties       String[]  // Changed from String? to String[]
-  experience        Int?
-  credentialUrl     String?
-  description       String?   @db.Text
-  verificationStatus VerificationStatus?  @default(PENDING)
-  
+  specialties        String[]
+  experience         Int?
+  credentialUrl      String?
+  description        String?             @db.Text
+  verificationStatus VerificationStatus? @default(PENDING)
+
   // Relations
-  patientAppointments Appointment[] @relation("PatientAppointments")
-  doctorAppointments  Appointment[] @relation("DoctorAppointments")
+  patientAppointments Appointment[]       @relation("PatientAppointments")
+  doctorAppointments  Appointment[]       @relation("DoctorAppointments")
   availabilities      Availability[]
   transactions        CreditTransaction[]
   payouts             Payout[]
-  patientVisits       PatientVisit[]   // ← ADDED THIS LINE
+  patientVisits       PatientVisit[]
 }
 
 enum UserRole {
@@ -44,6 +44,10 @@ enum UserRole {
   PATIENT
   DOCTOR
   ADMIN
+  RECEPTIONIST
+  TRIAGE
+  LABORATORY
+  PHARMACY
 }
 
 enum VerificationStatus {
@@ -53,13 +57,13 @@ enum VerificationStatus {
 }
 
 model Availability {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   doctorId  String
-  doctor    User     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor    User       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   startTime DateTime
   endTime   DateTime
   status    SlotStatus @default(AVAILABLE)
-  
+
   @@index([doctorId, startTime])
 }
 
@@ -70,23 +74,23 @@ enum SlotStatus {
 }
 
 model Appointment {
-  id                String   @id @default(uuid())
-  patientId         String
-  patient           User     @relation("PatientAppointments", fields: [patientId], references: [id])
-  doctorId          String
-  doctor            User     @relation("DoctorAppointments", fields: [doctorId], references: [id])
-  startTime         DateTime
-  endTime           DateTime
-  status            AppointmentStatus @default(SCHEDULED)
-  notes             String?  @db.Text
-  patientDescription String? @db.Text
-    
+  id                 String            @id @default(uuid())
+  patientId          String
+  patient            User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  doctorId           String
+  doctor             User              @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  startTime          DateTime
+  endTime            DateTime
+  status             AppointmentStatus @default(SCHEDULED)
+  notes              String?           @db.Text
+  patientDescription String?           @db.Text
+
   // Video session fields
   videoSessionId    String?
   videoSessionToken String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, startTime])
   @@index([doctorId, startTime])
@@ -99,13 +103,13 @@ enum AppointmentStatus {
 }
 
 model CreditTransaction {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount            Int
-  type              TransactionType
-  packageId         String?
-  createdAt         DateTime @default(now())
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  type      TransactionType
+  packageId String?
+  createdAt DateTime        @default(now())
 }
 
 enum TransactionType {
@@ -115,19 +119,19 @@ enum TransactionType {
 }
 
 model Payout {
-  id              String        @id @default(uuid())
-  doctorId        String
-  doctor          User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  amount          Float
-  credits         Int
-  platformFee     Float
-  netAmount       Float
-  paypalEmail     String
-  status          PayoutStatus  @default(PROCESSING)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  processedAt     DateTime?
-  processedBy     String?
+  id          String       @id @default(uuid())
+  doctorId    String
+  doctor      User         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  amount      Float
+  credits     Int
+  platformFee Float
+  netAmount   Float
+  paypalEmail String
+  status      PayoutStatus @default(PROCESSING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  processedAt DateTime?
+  processedBy String?
 
   @@index([status, createdAt])
   @@index([doctorId, status])
@@ -139,24 +143,67 @@ enum PayoutStatus {
 }
 
 // ============================================
-// NEW MODEL FOR PHYSICAL PATIENT RECORDS
+// PHYSICAL PATIENT RECORDS
 // ============================================
 
 model PatientVisit {
   id              String      @id @default(uuid())
   fullName        String
-  idNumber        String?     // ← NEW
-  phoneNumber     String?     // ← NEW
+  idNumber        String?
+  phoneNumber     String?
   triageNotes     String?     @db.Text
   doctorNotes     String?     @db.Text
   laboratoryNotes String?     @db.Text
   pharmacyNotes   String?     @db.Text
+  receiptNotes    String?     @db.Text
+  treatmentText   String?     @db.Text // treatment summary
+  medicinesJson   String?     @db.Text // JSON array of medicines
+  receiptReady    Boolean     @default(false)
+  receiptPrinted  Boolean     @default(false)
+  totalPrice      Float?
   status          VisitStatus @default(REGISTERED)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  doctorId        String?
-  doctor          User?       @relation(fields: [doctorId], references: [id])
+  doctorId String?
+  doctor   User?   @relation(fields: [doctorId], references: [id])
+
+  movements     PatientMovement[]
+  notifications Notification[]
+  messages      PatientMessage[]
+}
+
+model PatientMessage {
+  id           String       @id @default(uuid())
+  visitId      String
+  visit        PatientVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  senderRole   String // e.g. TRIAGE, DOCTOR
+  receiverRole String // e.g. DOCTOR, LABORATORY
+  message      String       @db.Text
+  createdAt    DateTime     @default(now())
+
+  @@index([visitId, createdAt])
+}
+
+model PatientMovement {
+  id         String       @id @default(uuid())
+  visitId    String
+  visit      PatientVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  fromStatus String
+  toStatus   String
+  message    String?      @db.Text
+  createdBy  String?
+  createdAt  DateTime     @default(now())
+}
+
+model Notification {
+  id        String       @id @default(uuid())
+  visitId   String
+  visit     PatientVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  toStatus  String
+  message   String
+  isRead    Boolean      @default(false)
+  createdAt DateTime     @default(now())
 }
 
 enum VisitStatus {
