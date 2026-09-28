@@ -1,7 +1,5 @@
 import { getCurrentUser } from "@/actions/onboarding";
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
-import { Users } from "lucide-react";
 
 export default async function StaffLayout({ children }) {
   const user = await getCurrentUser();
@@ -19,10 +17,5 @@ export default async function StaffLayout({ children }) {
     redirect("/onboarding");
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <PageHeader icon={<Users />} title="Hospital Staff Dashboard" />
-      {children}
-    </div>
-  );
+  return <div className="container mx-auto px-4 py-8">{children}</div>;
 }

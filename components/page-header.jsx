@@ -1,44 +1,57 @@
+import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import React from "react";
-import { Button } from "./ui/button";
+import { ChevronRight } from "lucide-react";
 
 /**
- * Reusable page header component with back button and title
- *
- * @param {React.ReactNode} props.icon - Icon component to display next to the title
- * @param {string} props.title - Page title
- * @param {string} props.backLink - URL to navigate back to (defaults to home)
- * @param {string} props.backLabel - Text for the back link (defaults to "Back to Home")
+ * Usage:
+ *   <PageHeader title="Pharmacy" subtitle="..." breadcrumb={[{label:"Staff", href:"/staff"},{label:"Pharmacy"}]} action={<Button>...</Button>} />
+ *   <PageHeader icon={<Users/>} title="..." />   // legacy shape still works
  */
 export function PageHeader({
   icon,
   title,
-  backLink = "/",
-  backLabel = "Back to Home",
+  subtitle,
+  breadcrumb,
+  action,
+  className,
 }) {
   return (
-    <div className="flex flex-col justify-between gap-5 mb-8">
-      <Link href={backLink}>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mb-2 border-emerald-900/30"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          {backLabel}
-        </Button>
-      </Link>
-      <div className="flex items-end gap-2">
-        {icon && (
-          <div className="text-emerald-400">
-            {React.cloneElement(icon, {
-              className: "h-12 md:h-14 w-12 md:w-14",
-            })}
-          </div>
-        )}
-        <h1 className="text-4xl md:text-5xl gradient-title">{title}</h1>
+    <div className={cn("mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
+      <div className="space-y-1.5">
+        {breadcrumb?.length ? (
+          <nav className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            {breadcrumb.map((c, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {c.href ? (
+                  <Link href={c.href} className="hover:text-foreground transition-colors">
+                    {c.label}
+                  </Link>
+                ) : (
+                  <span className="text-foreground/80">{c.label}</span>
+                )}
+                {i < breadcrumb.length - 1 && <ChevronRight className="h-3 w-3" />}
+              </span>
+            ))}
+          </nav>
+        ) : null}
+
+        <div className="flex items-center gap-2.5">
+          {icon ? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="[&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+            </span>
+          ) : null}
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {title}
+          </h1>
+        </div>
+
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
       </div>
+
+      {action ? <div className="flex items-center gap-2">{action}</div> : null}
     </div>
   );
 }

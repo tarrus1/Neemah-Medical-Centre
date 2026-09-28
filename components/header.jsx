@@ -1,151 +1,37 @@
-import React from "react";
-import { Button } from "./ui/button";
-import {
-  Calendar,
-  ShieldCheck,
-  Stethoscope,
-  User,
-  Users,
-} from "lucide-react";
-import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { checkUser } from "@/lib/checkUser";
+import HeaderNav from "./header-nav";
 
 export default async function Header() {
   const user = await checkUser();
 
-  // Staff roles only
   const isStaff =
     user?.role === "RECEPTIONIST" ||
     user?.role === "TRIAGE" ||
     user?.role === "LABORATORY" ||
     user?.role === "PHARMACY" ||
+    user?.role === "CASHIER" ||
     user?.role === "DOCTOR" ||
     user?.role === "ADMIN";
 
-  return (
-    <header className="fixed top-0 w-full border-b bg-background/80 backdrop-blur-md z-10 supports-[backdrop-filter]:bg-background/60">
-      <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 shrink-0 group">
-          <img
-            src="/logo.png"
-            alt="Neemah Medical Centre logo"
-            className="h-14 w-14 md:h-16 md:w-16 object-contain shrink-0"
-          />
-          <div className="flex flex-col leading-none">
-            <span className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white group-hover:text-emerald-400 transition-colors">
-              Neemah
-              <span className="text-emerald-400">.</span>
-            </span>
-            <span className="hidden sm:inline-block text-[10px] md:text-xs font-medium text-muted-foreground tracking-widest uppercase mt-1">
-              Medical Centre
-            </span>
-          </div>
-        </Link>
+  const canAccessLab =
+    user?.role === "LABORATORY" ||
+    user?.role === "DOCTOR" ||
+    user?.role === "ADMIN";
 
-        <div className="flex items-center space-x-2">
-          <SignedIn>
-            {/* ===== ADMIN ONLY ===== */}
-            {user?.role === "ADMIN" && (
-              <Link href="/admin">
-                <Button
-                  variant="outline"
-                  className="hidden md:inline-flex items-center gap-2"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Admin Dashboard
-                </Button>
-                <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                  <ShieldCheck className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
+  const canAccessPharmacy =
+    user?.role === "PHARMACY" ||
+    user?.role === "DOCTOR" ||
+    user?.role === "ADMIN";
 
-            {/* ===== DOCTOR ONLY ===== */}
-            {user?.role === "DOCTOR" && (
-              <Link href="/doctor">
-                <Button
-                  variant="outline"
-                  className="hidden md:inline-flex items-center gap-2"
-                >
-                  <Stethoscope className="h-4 w-4" />
-                  Doctor Dashboard
-                </Button>
-                <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                  <Stethoscope className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
+  const navItems = [];
+  if (user?.role === "ADMIN")        navItems.push({ href: "/admin",            label: "Admin",      icon: "ShieldCheck" });
+  if (user?.role === "DOCTOR")       navItems.push({ href: "/doctor",           label: "Doctor",     icon: "Stethoscope" });
+  if (canAccessLab)                  navItems.push({ href: "/staff/laboratory", label: "Laboratory", icon: "FlaskConical" });
+  if (canAccessPharmacy)             navItems.push({ href: "/staff/pharmacy",   label: "Pharmacy",   icon: "Pill" });
+  if (user?.role === "CASHIER")      navItems.push({ href: "/staff/cashier",    label: "Cashier",    icon: "Wallet" });
+  if (isStaff)                       navItems.push({ href: "/staff",            label: "Staff",      icon: "Users" });
+  if (user?.role === "PATIENT")      navItems.push({ href: "/appointments",     label: "Appointments", icon: "Calendar" });
+  if (user?.role === "UNASSIGNED")   navItems.push({ href: "/onboarding",       label: "Complete Profile", icon: "User" });
 
-            {/* ===== STAFF ONLY (not patients) ===== */}
-            {isStaff && (
-              <Link href="/staff">
-                <Button
-                  variant="outline"
-                  className="hidden md:inline-flex items-center gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  Staff Dashboard
-                </Button>
-                <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                  <Users className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
-
-            {/* ===== PATIENT ONLY ===== */}
-            {user?.role === "PATIENT" && (
-              <Link href="/appointments">
-                <Button
-                  variant="outline"
-                  className="hidden md:inline-flex items-center gap-2"
-                >
-                  <Calendar className="h-4 w-4" />
-                  My Appointments
-                </Button>
-                <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                  <Calendar className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
-
-            {/* ===== NEW USER (no role yet) ===== */}
-            {user?.role === "UNASSIGNED" && (
-              <Link href="/onboarding">
-                <Button
-                  variant="outline"
-                  className="hidden md:inline-flex items-center gap-2"
-                >
-                  <User className="h-4 w-4" />
-                  Complete Profile
-                </Button>
-                <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                  <User className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
-          </SignedIn>
-
-          <SignedOut>
-            <SignInButton>
-              <Button variant="secondary">Sign In</Button>
-            </SignInButton>
-          </SignedOut>
-
-          <SignedIn>
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "w-10 h-10",
-                  userButtonPopoverCard: "shadow-xl",
-                  userPreviewMainIdentifier: "font-semibold",
-                },
-              }}
-              afterSignOutUrl="/"
-            />
-          </SignedIn>
-        </div>
-      </nav>
-    </header>
-  );
+  return <HeaderNav navItems={navItems} userRole={user?.role} />;
 }

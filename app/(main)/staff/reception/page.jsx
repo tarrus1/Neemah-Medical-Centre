@@ -1,14 +1,21 @@
-import { DepartmentQueue } from "../_components/department-queue";
+import { PageHeader } from "@/components/page-header";
+import { ClipboardList } from "lucide-react";
+import { ReceptionClient } from "./_components/reception-client";
 
 export default function ReceptionPage() {
-    return (
-        <DepartmentQueue
-            title="Reception"
-            currentStatus="REGISTERED"
-            notesField="triageNotes"
-            canRegister={true}
-            canDelete={true}
-            canSendAnywhere={true}
-        />
-    );
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        icon={<ClipboardList />}
+        title="Reception Desk"
+        subtitle="Register new patients"
+        breadcrumb={[
+          { label: "Staff", href: "/staff" },
+          { label: "Reception" },
+        ]}
+      />
+
+      <ReceptionClient />
+    </div>
+  );
 }

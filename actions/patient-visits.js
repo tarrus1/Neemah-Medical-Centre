@@ -23,17 +23,60 @@ export async function createPatientVisit(formData) {
     throw new Error("Only Reception can register patients");
   }
 
-  const fullName = formData.get("fullName");
+  const firstName = formData.get("firstName")?.toString().trim() || "";
+  const middleName = formData.get("middleName")?.toString().trim() || "";
+  const lastName = formData.get("lastName")?.toString().trim() || "";
   const idNumber = formData.get("idNumber") || null;
   const phoneNumber = formData.get("phoneNumber") || null;
+  const gender = formData.get("gender") || null;
+  const medicalHistory = formData.get("medicalHistory") || null;
+  const birthInput = formData.get("birthInput")?.toString().trim() || "";
 
-  if (!fullName) throw new Error("Patient full name is required");
+  if (!firstName || !lastName) {
+    throw new Error("First name and last name are required");
+  }
+
+  const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+
+  let birthYear = null;
+  let dateOfBirth = null;
+
+  if (birthInput) {
+    if (/^\d{4}$/.test(birthInput)) {
+      birthYear = parseInt(birthInput, 10);
+    } else {
+      const parsed = new Date(birthInput);
+      if (!isNaN(parsed.getTime())) {
+        dateOfBirth = parsed;
+        birthYear = parsed.getFullYear();
+      } else {
+        const parts = birthInput.split(/[\/\-]/);
+        if (parts.length === 3) {
+          const [d, m, y] = parts.map((p) => parseInt(p, 10));
+          if (y && m && d) {
+            const dt = new Date(y, m - 1, d);
+            if (!isNaN(dt.getTime())) {
+              dateOfBirth = dt;
+              birthYear = y;
+            }
+          }
+        }
+      }
+    }
+  }
 
   const visit = await db.patientVisit.create({
     data: {
+      firstName,
+      middleName: middleName || null,
+      lastName,
       fullName,
       idNumber,
       phoneNumber,
+      gender,
+      medicalHistory,
+      birthYear,
+      dateOfBirth,
       doctorId: staff.role === "DOCTOR" ? staff.id : null,
       status: "REGISTERED",
     },
@@ -60,6 +103,13 @@ export async function updatePatientVisit(formData) {
   const treatmentText = formData.get("treatmentText");
   const medicinesJson = formData.get("medicinesJson");
 
+  const bpSystolic = formData.get("bpSystolic");
+  const bpDiastolic = formData.get("bpDiastolic");
+  const heartRate = formData.get("heartRate");
+  const respiratoryRate = formData.get("respiratoryRate");
+  const temperature = formData.get("temperature");
+  const spo2 = formData.get("spo2");
+
   if (!visitId) throw new Error("Visit ID is required");
 
   const data = {};
@@ -74,6 +124,13 @@ export async function updatePatientVisit(formData) {
   if (treatmentText !== null && treatmentText !== undefined) data.treatmentText = treatmentText;
   if (medicinesJson !== null && medicinesJson !== undefined) data.medicinesJson = medicinesJson;
 
+  if (bpSystolic) data.bpSystolic = parseInt(bpSystolic, 10);
+  if (bpDiastolic) data.bpDiastolic = parseInt(bpDiastolic, 10);
+  if (heartRate) data.heartRate = parseInt(heartRate, 10);
+  if (respiratoryRate) data.respiratoryRate = parseInt(respiratoryRate, 10);
+  if (temperature) data.temperature = parseFloat(temperature);
+  if (spo2) data.spo2 = parseInt(spo2, 10);
+
   const visit = await db.patientVisit.update({
     where: { id: visitId },
     data,
@@ -84,12 +141,16 @@ export async function updatePatientVisit(formData) {
   return { success: true, visit };
 }
 
+/**
+ * Legacy simple handoff. Kept for compatibility — no longer creates a
+ * "Patient moved from X to Y" message when none was typed.
+ */
 export async function sendToNextStage(formData) {
   const staff = await getCurrentStaff();
 
   const visitId = formData.get("visitId");
   const nextStatus = formData.get("nextStatus");
-  const message = formData.get("message") || "";
+  const message = formData.get("message")?.toString().trim() || "";
 
   if (!visitId || !nextStatus) {
     throw new Error("Visit ID and next status are required");
@@ -107,25 +168,28 @@ export async function sendToNextStage(formData) {
     data: { status: nextStatus },
   });
 
+  // Movement always records the handoff (audit trail).
+  // message is null when empty — the UI renders "—" instead of noise.
   await db.patientMovement.create({
     data: {
       visitId,
       fromStatus,
       toStatus: nextStatus,
-      message: message || `Sent from ${fromStatus} to ${nextStatus}`,
+      message: message || null,
       createdBy: staff.name || staff.email,
     },
   });
 
-  await db.notification.create({
-    data: {
-      visitId,
-      toStatus: nextStatus,
-      message:
-        message ||
-        `New patient: ${visit.fullName} has been sent to you from ${fromStatus}`,
-    },
-  });
+  // Only create a notification when there's actual content to deliver
+  if (message) {
+    await db.notification.create({
+      data: {
+        visitId,
+        toStatus: nextStatus,
+        message,
+      },
+    });
+  }
 
   revalidatePath("/staff");
   revalidatePath("/doctor");
@@ -137,18 +201,42 @@ export async function sendPatientMessage(formData) {
 
   const visitId = formData.get("visitId");
   const receiverRole = formData.get("receiverRole");
-  const message = formData.get("message");
   const notesField = formData.get("notesField");
   const notes = formData.get("notes") || "";
   const totalPrice = formData.get("totalPrice");
   const treatmentText = formData.get("treatmentText");
   const medicinesJson = formData.get("medicinesJson");
+  const referralsJson = formData.get("referralsJson");
+  const billItemsJson = formData.get("billItemsJson");
+
+  const bpSystolic = formData.get("bpSystolic");
+  const bpDiastolic = formData.get("bpDiastolic");
+  const heartRate = formData.get("heartRate");
+  const respiratoryRate = formData.get("respiratoryRate");
+  const temperature = formData.get("temperature");
+  const spo2 = formData.get("spo2");
+
+  let message = formData.get("message");
+  let finalMessage = message ? String(message).trim() : "";
+
+  // Build message from vitals when Triage sends (no free-text required)
+  if (
+    !finalMessage &&
+    (bpSystolic || heartRate || temperature || spo2 || respiratoryRate)
+  ) {
+    finalMessage = [
+      bpSystolic && bpDiastolic && `BP: ${bpSystolic}/${bpDiastolic} mmHg`,
+      heartRate && `Pulse: ${heartRate} bpm`,
+      respiratoryRate && `RR: ${respiratoryRate} /min`,
+      temperature && `Temp: ${temperature} °C`,
+      spo2 && `SpO2: ${spo2}%`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 
   if (!visitId) throw new Error("Visit ID is required");
-  if (!receiverRole) throw new Error("Please select where to send the message");
-  if (!message || !String(message).trim()) {
-    throw new Error("Message is required");
-  }
+  if (!receiverRole) throw new Error("Please select where to send");
 
   const visit = await db.patientVisit.findUnique({
     where: { id: visitId },
@@ -157,11 +245,99 @@ export async function sendPatientMessage(formData) {
 
   const senderRole = visit.status;
 
+  // Note: no fallback "Patient moved from..." message.
+  // If nothing was typed and there are no vitals, finalMessage stays "".
+
+  // ── Parse + validate referrals ──
+  const REFERRAL_AWARE_ROLES = ["TRIAGE", "LABORATORY", "PHARMACY"];
+
+  let referrals = null;
+  if (referralsJson && REFERRAL_AWARE_ROLES.includes(receiverRole)) {
+    try {
+      const parsed = JSON.parse(referralsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        referrals = Array.from(
+          new Set(
+            parsed
+              .filter((r) => typeof r === "string" && r.trim().length > 0)
+              .map((r) => r.trim())
+          )
+        );
+      }
+    } catch {
+      referrals = null;
+    }
+  }
+
+  // ── Parse + append bill items ──
+  let incomingBillItems = [];
+  if (billItemsJson) {
+    try {
+      const parsed = JSON.parse(billItemsJson);
+      if (Array.isArray(parsed)) {
+        incomingBillItems = parsed
+          .filter(
+            (it) =>
+              it &&
+              typeof it.label === "string" &&
+              it.label.trim().length > 0
+          )
+          .map((it) => ({
+            label: it.label.trim(),
+            amount: parseFloat(it.amount) || 0,
+            dept: senderRole,
+            at: new Date().toISOString(),
+            by: staff.name || staff.email,
+          }));
+      }
+    } catch {
+      incomingBillItems = [];
+    }
+  }
+
   const data = {};
   if (notesField && notes !== undefined) data[notesField] = notes;
-  if (totalPrice) data.totalPrice = parseFloat(totalPrice);
-  if (treatmentText !== null && treatmentText !== undefined) data.treatmentText = treatmentText;
-  if (medicinesJson !== null && medicinesJson !== undefined) data.medicinesJson = medicinesJson;
+  if (treatmentText !== null && treatmentText !== undefined) {
+    data.treatmentText = treatmentText;
+  }
+  if (medicinesJson !== null && medicinesJson !== undefined) {
+    data.medicinesJson = medicinesJson;
+  }
+
+  if (bpSystolic) data.bpSystolic = parseInt(bpSystolic, 10);
+  if (bpDiastolic) data.bpDiastolic = parseInt(bpDiastolic, 10);
+  if (heartRate) data.heartRate = parseInt(heartRate, 10);
+  if (respiratoryRate) data.respiratoryRate = parseInt(respiratoryRate, 10);
+  if (temperature) data.temperature = parseFloat(temperature);
+  if (spo2) data.spo2 = parseInt(spo2, 10);
+
+  // Store referrals on the visit
+  data.referrals = referrals;
+
+  // Append bill items to running bill
+  if (incomingBillItems.length > 0) {
+    const existingItems = Array.isArray(visit.billItems)
+      ? visit.billItems
+      : [];
+
+    const updatedItems = [...existingItems, ...incomingBillItems];
+    const subtotal = updatedItems.reduce(
+      (sum, it) => sum + (parseFloat(it.amount) || 0),
+      0
+    );
+
+    data.billItems = updatedItems;
+    data.billSubtotal = subtotal;
+    data.totalPrice = subtotal;
+  } else if (totalPrice) {
+    data.totalPrice = parseFloat(totalPrice);
+  }
+
+  // Store vitals summary in triageNotes when Triage sends
+  if (senderRole === "TRIAGE" && finalMessage) {
+    data.triageNotes = finalMessage;
+  }
+
   data.status = receiverRole;
 
   await db.patientVisit.update({
@@ -169,32 +345,39 @@ export async function sendPatientMessage(formData) {
     data,
   });
 
-  await db.patientMessage.create({
-    data: {
-      visitId,
-      senderRole,
-      receiverRole,
-      message: String(message).trim(),
-    },
-  });
+  // Only create a PatientMessage row when there's real content
+  if (finalMessage && finalMessage.trim().length > 0) {
+    await db.patientMessage.create({
+      data: {
+        visitId,
+        senderRole,
+        receiverRole,
+        message: finalMessage,
+      },
+    });
+  }
 
+  // Movement always records the handoff (audit trail).
   await db.patientMovement.create({
     data: {
       visitId,
       fromStatus: senderRole,
       toStatus: receiverRole,
-      message: String(message).trim(),
+      message: finalMessage || null,
       createdBy: staff.name || staff.email,
     },
   });
 
-  await db.notification.create({
-    data: {
-      visitId,
-      toStatus: receiverRole,
-      message: `New message from ${senderRole}: ${String(message).trim().slice(0, 80)}`,
-    },
-  });
+  // Notification only when there's real content
+  if (finalMessage && finalMessage.trim().length > 0) {
+    await db.notification.create({
+      data: {
+        visitId,
+        toStatus: receiverRole,
+        message: `Update from ${senderRole}: ${finalMessage.slice(0, 80)}`,
+      },
+    });
+  }
 
   revalidatePath("/staff");
   revalidatePath("/doctor");
@@ -248,12 +431,12 @@ export async function getPatientVisitsByStatus(status, search = "") {
         },
         search
           ? {
-            OR: [
-              { fullName: { contains: search, mode: "insensitive" } },
-              { idNumber: { contains: search, mode: "insensitive" } },
-              { phoneNumber: { contains: search, mode: "insensitive" } },
-            ],
-          }
+              OR: [
+                { fullName: { contains: search, mode: "insensitive" } },
+                { idNumber: { contains: search, mode: "insensitive" } },
+                { phoneNumber: { contains: search, mode: "insensitive" } },
+              ],
+            }
           : {},
       ],
     },
@@ -273,12 +456,12 @@ export async function getPatientVisits(search = "") {
   const visits = await db.patientVisit.findMany({
     where: search
       ? {
-        OR: [
-          { fullName: { contains: search, mode: "insensitive" } },
-          { idNumber: { contains: search, mode: "insensitive" } },
-          { phoneNumber: { contains: search, mode: "insensitive" } },
-        ],
-      }
+          OR: [
+            { fullName: { contains: search, mode: "insensitive" } },
+            { idNumber: { contains: search, mode: "insensitive" } },
+            { phoneNumber: { contains: search, mode: "insensitive" } },
+          ],
+        }
       : undefined,
     include: {
       movements: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -293,8 +476,13 @@ export async function getPatientVisits(search = "") {
 export async function getNotifications(status) {
   await getCurrentStaff();
 
+  if (!status) return { notifications: [] };
+
   const notifications = await db.notification.findMany({
-    where: { toStatus: status, isRead: false },
+    where: {
+      toStatus: { equals: status, mode: "insensitive" },
+      isRead: false,
+    },
     include: { visit: true },
     orderBy: { createdAt: "desc" },
   });
@@ -378,9 +566,6 @@ export async function editPatientVisitDetails(formData) {
   return { success: true, visit };
 }
 
-/**
- * Generate receipt (treatment + medicines, NO total price on receipt)
- */
 export async function generateReceipt(formData) {
   const staff = await getCurrentStaff();
 
@@ -402,12 +587,13 @@ export async function generateReceipt(formData) {
         .filter((m) => m?.name)
         .map(
           (m, i) =>
-            `${i + 1}. ${m.name}${m.dose ? ` — ${m.dose}` : ""} [${m.available === false ? "NOT AVAILABLE" : "Available"
+            `${i + 1}. ${m.name}${m.dose ? ` — ${m.dose}` : ""} [${
+              m.available === false ? "NOT AVAILABLE" : "Available"
             }]`
         )
         .join("\n");
     }
-  } catch (_) { }
+  } catch (_) {}
 
   const autoNotes = [
     visit.treatmentText && `TREATMENT:\n${visit.treatmentText}`,
@@ -420,8 +606,8 @@ export async function generateReceipt(formData) {
     .filter(Boolean)
     .join("\n\n");
 
-  // No total price on receipt
-  const finalNotes = receiptNotesFromClient || autoNotes || "No treatment details recorded.";
+  const finalNotes =
+    receiptNotesFromClient || autoNotes || "No treatment details recorded.";
 
   const updated = await db.patientVisit.update({
     where: { id: visitId },
@@ -480,4 +666,266 @@ export async function getReadyReceipts() {
   });
 
   return { visits };
+}
+
+export async function getReceptionStats() {
+  await getCurrentStaff();
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const [todayCount, weekCount, waiting, readyReceipts] = await Promise.all([
+    db.patientVisit.count({ where: { createdAt: { gte: todayStart } } }),
+    db.patientVisit.count({ where: { createdAt: { gte: weekStart } } }),
+    db.patientVisit.count({ where: { status: "REGISTERED" } }),
+    db.patientVisit.count({
+      where: { receiptReady: true, receiptPrinted: false },
+    }),
+  ]);
+
+  return {
+    stats: {
+      today: todayCount,
+      week: weekCount,
+      waiting,
+      readyReceipts,
+    },
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CASHIER / BILLING
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export async function addBillItem(formData) {
+  const staff = await getCurrentStaff();
+
+  const visitId = formData.get("visitId");
+  const label = formData.get("label");
+  const amount = formData.get("amount");
+  const dept = formData.get("dept");
+
+  if (!visitId || !label) throw new Error("Visit ID and label required");
+
+  const visit = await db.patientVisit.findUnique({ where: { id: visitId } });
+  if (!visit) throw new Error("Patient not found");
+
+  const existing = Array.isArray(visit.billItems) ? visit.billItems : [];
+  const parsedAmount = parseFloat(amount) || 0;
+
+  const updatedItems = [
+    ...existing,
+    {
+      label: String(label).trim(),
+      amount: parsedAmount,
+      dept: dept || visit.status,
+      at: new Date().toISOString(),
+      by: staff.name || staff.email,
+    },
+  ];
+
+  const subtotal = updatedItems.reduce(
+    (sum, it) => sum + (parseFloat(it.amount) || 0),
+    0
+  );
+
+  await db.patientVisit.update({
+    where: { id: visitId },
+    data: {
+      billItems: updatedItems,
+      billSubtotal: subtotal,
+      totalPrice: subtotal,
+    },
+  });
+
+  revalidatePath("/staff");
+  return { success: true, subtotal, items: updatedItems };
+}
+
+export async function confirmBillPaid(formData) {
+  const staff = await getCurrentStaff();
+
+  const visitId = formData.get("visitId");
+  const billRef = formData.get("billRef") || null;
+  const cashierNotes = formData.get("cashierNotes") || null;
+  const waive = formData.get("waive") === "true";
+
+  if (!visitId) throw new Error("Visit ID is required");
+
+  const visit = await db.patientVisit.findUnique({ where: { id: visitId } });
+  if (!visit) throw new Error("Patient not found");
+
+  const updated = await db.patientVisit.update({
+    where: { id: visitId },
+    data: {
+      billPaid: waive ? false : true,
+      billPaidAt: new Date(),
+      billPaidBy: staff.name || staff.email,
+      billRef: billRef || (waive ? "WAIVED" : null),
+      cashierNotes,
+      status: "COMPLETED",
+      receiptReady: true,
+      receiptPrinted: false,
+    },
+  });
+
+  await db.patientMovement.create({
+    data: {
+      visitId,
+      fromStatus: "CASHIER",
+      toStatus: "COMPLETED",
+      message: waive
+        ? `Bill waived — KES ${visit.billSubtotal || 0}`
+        : `Paid — KES ${visit.billSubtotal || 0}${
+            billRef ? ` (${billRef})` : ""
+          }`,
+      createdBy: staff.name || staff.email,
+    },
+  });
+
+  revalidatePath("/staff");
+  return { success: true, visit: updated };
+}
+
+export async function getCashierStats() {
+  await getCurrentStaff();
+
+  const now = new Date();
+
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const monthStart = new Date(now);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [todayAgg, weekAgg, monthAgg, waiting, unpaid] = await Promise.all([
+    db.patientVisit.aggregate({
+      where: { billPaidAt: { gte: todayStart }, billPaid: true },
+      _sum: { billSubtotal: true },
+      _count: true,
+    }),
+    db.patientVisit.aggregate({
+      where: { billPaidAt: { gte: weekStart }, billPaid: true },
+      _sum: { billSubtotal: true },
+      _count: true,
+    }),
+    db.patientVisit.aggregate({
+      where: { billPaidAt: { gte: monthStart }, billPaid: true },
+      _sum: { billSubtotal: true },
+      _count: true,
+    }),
+    db.patientVisit.count({ where: { status: "CASHIER" } }),
+    db.patientVisit.count({
+      where: { status: "CASHIER", billPaid: false },
+    }),
+  ]);
+
+  return {
+    stats: {
+      todayRevenue: todayAgg._sum.billSubtotal || 0,
+      todayTxns: todayAgg._count || 0,
+      weekRevenue: weekAgg._sum.billSubtotal || 0,
+      weekTxns: weekAgg._count || 0,
+      monthRevenue: monthAgg._sum.billSubtotal || 0,
+      monthTxns: monthAgg._count || 0,
+      waiting: waiting || 0,
+      unpaid: unpaid || 0,
+    },
+  };
+}
+
+export async function getCashierHistory({ limit = 100, search = "" } = {}) {
+  await getCurrentStaff();
+
+  const visits = await db.patientVisit.findMany({
+    where: {
+      billPaid: true,
+      ...(search
+        ? {
+            OR: [
+              { fullName: { contains: search, mode: "insensitive" } },
+              { idNumber: { contains: search, mode: "insensitive" } },
+              { billRef: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { billPaidAt: "desc" },
+    take: limit,
+  });
+
+  return { visits };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NOTIFICATIONS (header bell)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export async function getNotificationCount(status) {
+  await getCurrentStaff();
+
+  if (!status) return { count: 0 };
+
+  const count = await db.notification.count({
+    where: {
+      toStatus: { equals: status, mode: "insensitive" },
+      isRead: false,
+    },
+  });
+
+  return { count };
+}
+
+export async function getLatestNotifications(status, limit = 8) {
+  await getCurrentStaff();
+
+  if (!status) return { notifications: [] };
+
+  const notifications = await db.notification.findMany({
+    where: {
+      toStatus: { equals: status, mode: "insensitive" },
+      isRead: false,
+    },
+    include: {
+      visit: {
+        select: {
+          id: true,
+          fullName: true,
+          idNumber: true,
+          phoneNumber: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  return { notifications };
+}
+
+export async function markAllNotificationsRead(status) {
+  await getCurrentStaff();
+
+  if (!status) return { success: false };
+
+  await db.notification.updateMany({
+    where: {
+      toStatus: { equals: status, mode: "insensitive" },
+      isRead: false,
+    },
+    data: { isRead: true },
+  });
+
+  revalidatePath("/staff");
+  return { success: true };
 }

@@ -48,6 +48,7 @@ enum UserRole {
   TRIAGE
   LABORATORY
   PHARMACY
+  CASHIER
 }
 
 enum VerificationStatus {
@@ -148,37 +149,89 @@ enum PayoutStatus {
 
 model PatientVisit {
   id              String      @id @default(uuid())
+
+  // ── Patient identity ──
+  firstName       String?
+  middleName      String?
+  lastName        String?
   fullName        String
   idNumber        String?
   phoneNumber     String?
+
+  // ── Age / birth ──
+  birthYear       Int?
+  dateOfBirth     DateTime?
+  gender          String?
+  medicalHistory  String?     @db.Text
+
+  // ── Department notes ──
   triageNotes     String?     @db.Text
   doctorNotes     String?     @db.Text
   laboratoryNotes String?     @db.Text
   pharmacyNotes   String?     @db.Text
+
+  // ── Reception receipt (no money shown) ──
   receiptNotes    String?     @db.Text
-  treatmentText   String?     @db.Text // treatment summary
-  medicinesJson   String?     @db.Text // JSON array of medicines
   receiptReady    Boolean     @default(false)
   receiptPrinted  Boolean     @default(false)
-  totalPrice      Float?
+
+  // ── Treatment & medicines ──
+  treatmentText   String?     @db.Text
+  medicinesJson   String?     @db.Text
+
+  // ── Referrals: services the receiving department should perform ──
+  // Example values: ["BP","TEMP"]  or  ["Malaria","HIV"]
+  // null = no specific services requested (receiver shows all)
+  referrals       Json?
+
+  // ── Triage vital signs ──
+  bpSystolic      Int?
+  bpDiastolic     Int?
+  heartRate       Int?
+  respiratoryRate Int?
+  temperature     Float?
+  spo2            Int?
+
+  // ── Billing / Cashier ──
+  // Line items accumulated from every department that charges.
+  // Shape: [{ label, amount, dept, at, by }]
+  billItems       Json?
+  // Running total (sum of billItems[].amount)
+  billSubtotal    Float?
+  // Whether the cashier has confirmed the visit as paid
+  billPaid        Boolean     @default(false)
+  billPaidAt      DateTime?
+  billPaidBy      String?     // staff name/email that confirmed
+  billRef         String?     // M-Pesa code, receipt #, etc.
+  cashierNotes    String?     @db.Text
+
+  // ── Status ──
+  totalPrice      Float?      // legacy: kept in sync with billSubtotal
   status          VisitStatus @default(REGISTERED)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
+  // ── Relations ──
   doctorId String?
   doctor   User?   @relation(fields: [doctorId], references: [id])
 
   movements     PatientMovement[]
   notifications Notification[]
   messages      PatientMessage[]
+  labResults    LabTestResult[]
+
+  // ── Indexes ──
+  @@index([status, updatedAt])
+  @@index([createdAt])
+  @@index([billPaid, billPaidAt])   // fast cashier history queries
 }
 
 model PatientMessage {
   id           String       @id @default(uuid())
   visitId      String
   visit        PatientVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  senderRole   String // e.g. TRIAGE, DOCTOR
-  receiverRole String // e.g. DOCTOR, LABORATORY
+  senderRole   String
+  receiverRole String
   message      String       @db.Text
   createdAt    DateTime     @default(now())
 
@@ -204,6 +257,8 @@ model Notification {
   message   String
   isRead    Boolean      @default(false)
   createdAt DateTime     @default(now())
+  @@index([toStatus, isRead])
+  @@index([visitId, createdAt])
 }
 
 enum VisitStatus {
@@ -212,5 +267,52 @@ enum VisitStatus {
   DOCTOR
   LABORATORY
   PHARMACY
+  CASHIER
   COMPLETED
+}
+
+model LabTest {
+  id        String          @id @default(uuid())
+  name      String
+  price     Float           @default(0)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  results   LabTestResult[]
+}
+
+model LabTestResult {
+  id        String       @id @default(uuid())
+  visitId   String
+  visit     PatientVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  labTestId String?
+  labTest   LabTest?     @relation(fields: [labTestId], references: [id])
+  testName  String
+  result    String?      @db.Text
+  price     Float        @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([visitId])
+}
+
+model Medicine {
+  id        String             @id @default(uuid())
+  name      String
+  price     Float              @default(0)
+  stock     Int                @default(0)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  stockLogs MedicineStockLog[]
+}
+
+model MedicineStockLog {
+  id         String   @id @default(uuid())
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  quantity   Int
+  note       String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
 }

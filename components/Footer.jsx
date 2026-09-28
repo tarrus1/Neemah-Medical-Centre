@@ -9,31 +9,38 @@ import {
   Heart,
   ShieldCheck,
   MessageCircle,
+  Activity,
+  Stethoscope,
+  Baby,
+  Syringe,
+  Users,
+  HeartPulse,
+  Apple,
+  CalendarHeart,
+  Sparkles,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
 // ─── Data ────────────────────────────────────────────────
 const quickLinks = [
   { name: "Home", href: "/" },
-  { name: "Services", href: "/services" },
-  { name: "Book Appointment", href: "/services" },
+  { name: "Services", href: "/doctors" },
+  { name: "Book Appointment", href: "/doctors" },
   { name: "Sign In", href: "/sign-in" },
   { name: "Sign Up", href: "/sign-up" },
 ];
 
-// Service links now point to the actual booking routes
 const services = [
-  { name: "Online Consultation", href: "/book/online-consultation" },
-  { name: "Minor Surgeries", href: "/book/minor-surgeries" },
-  { name: "Diabetes / Hypertension", href: "/book/diabetes-hypertension" },
-  { name: "Immunization", href: "/book/immunization" },
-  { name: "Paediatric Clinic", href: "/book/paediatric" },
-  { name: "Counselling", href: "/book/counselling" },
-  { name: "Nutritional Services", href: "/book/nutrition" },
-  { name: "Family Planning", href: "/book/family-planning" },
-  { name: "ANC", href: "/book/anc" },
-  { name: "PNC", href: "/book/pnc" },
-  { name: "MCH", href: "/book/mch" },
+  { name: "Online Consultation",    href: "/doctors", icon: MessageCircle },
+  { name: "Minor Surgeries",        href: "/doctors", icon: Activity },
+  { name: "Diabetes & Hypertension", href: "/doctors", icon: HeartPulse },
+  { name: "Immunization",           href: "/doctors", icon: Syringe },
+  { name: "Paediatric Clinic",      href: "/doctors", icon: Baby },
+  { name: "Counselling",            href: "/doctors", icon: Users },
+  { name: "Nutritional Services",   href: "/doctors", icon: Apple },
+  { name: "Family Planning",        href: "/doctors", icon: CalendarHeart },
+  { name: "ANC / PNC",              href: "/doctors", icon: Stethoscope },
 ];
 
 const WHATSAPP_NUMBER = "254792195454";
@@ -44,49 +51,63 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative bg-muted/50 border-t border-emerald-900/20">
+    <footer className="relative overflow-hidden border-t border-border/60 bg-muted/30">
       {/* Subtle glow accent */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+      <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+      <div className="pointer-events-none absolute -left-32 bottom-0 h-80 w-80 rounded-full bg-emerald-500/5 blur-3xl" />
 
-      <div className="container mx-auto px-4 py-16">
-        {/* Top grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
+      <div className="relative container mx-auto px-4 py-12 sm:py-16">
+        {/* ─── Top grid ───────────────────────────── */}
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
 
           {/* ─── Brand + newsletter ─────────────────── */}
-          <div className="space-y-6 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/logo-single.png"
-                alt="Neemah Medical Centre"
-                width={200}
-                height={60}
-                className="h-10 w-auto object-contain"
-              />
+          <div className="space-y-5 sm:col-span-2 lg:col-span-1">
+            {/* Logo + name — visible on all screens */}
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card">
+                <Image
+                  src="/logo.png"
+                  alt="Neemah Medical Centre"
+                  width={48}
+                  height={48}
+                  className="h-10 w-10 object-contain"
+                  priority={false}
+                />
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="text-base font-semibold tracking-tight text-foreground">
+                  Neemah<span className="text-primary">.</span>
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  Medical Centre
+                </span>
+              </div>
             </Link>
 
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               Compassionate, modern healthcare for you and your family —
               available online and in-person at Neemah Medical Centre.
             </p>
 
             {/* Newsletter */}
             <div className="space-y-3">
-              <p className="text-sm font-medium text-white">
+              <p className="text-xs font-medium uppercase tracking-wider text-foreground">
                 Get health tips & updates
               </p>
               <form className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="email"
                     placeholder="you@example.com"
-                    className="w-full pl-9 pr-3 py-2 text-sm rounded-md border border-emerald-900/30 bg-background text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-md border border-border/60 bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
                 <Button
                   type="submit"
                   size="icon"
-                  className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+                  className="shrink-0 focus-ring"
                   aria-label="Subscribe"
                 >
                   <Send className="h-4 w-4" />
@@ -97,17 +118,19 @@ export default function Footer() {
 
           {/* ─── Quick links ───────────────────────── */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
               Quick Links
             </h3>
-            <ul className="space-y-3">
+            <ul className="space-y-2.5">
               {quickLinks.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-emerald-400 transition-colors"
+                    className="group inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
                     {link.name}
+                    <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
                   </Link>
                 </li>
               ))}
@@ -116,47 +139,53 @@ export default function Footer() {
 
           {/* ─── Services ──────────────────────────── */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+              <Stethoscope className="h-3.5 w-3.5 text-primary" />
               Our Services
             </h3>
-            <ul className="space-y-3">
-              {services.map((service) => (
-                <li key={service.name}>
-                  <Link
-                    href="/doctors"
-                    className="text-sm text-muted-foreground hover:text-emerald-400 transition-colors"
-                  >
-                    {service.name}
-                  </Link>
-                </li>
-              ))}
+            <ul className="space-y-2.5">
+              {services.map((service) => {
+                const Icon = service.icon;
+                return (
+                  <li key={service.name}>
+                    <Link
+                      href={service.href}
+                      className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                      {service.name}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
           {/* ─── Contact ───────────────────────────── */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+              <Phone className="h-3.5 w-3.5 text-primary" />
               Get in Touch
             </h3>
 
-            <ul className="space-y-4 text-sm">
+            <ul className="space-y-3.5 text-sm">
               <li className="flex items-start gap-3 text-muted-foreground">
-                <MapPin className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span>Neemah Medical Centre, Mogotio, Kenya</span>
               </li>
 
               <li className="flex items-start gap-3 text-muted-foreground">
-                <Phone className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div className="flex flex-col">
                   <a
                     href="tel:0180363450"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="transition-colors hover:text-primary"
                   >
                     0180 363 450
                   </a>
                   <a
                     href={`tel:+${WHATSAPP_NUMBER}`}
-                    className="hover:text-emerald-400 transition-colors"
+                    className="transition-colors hover:text-primary"
                   >
                     {WHATSAPP_DISPLAY}
                   </a>
@@ -164,59 +193,54 @@ export default function Footer() {
               </li>
 
               <li className="flex items-start gap-3 text-muted-foreground">
-                <Mail className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <a
                   href="mailto:neemahmedical@gmail.com"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="break-all transition-colors hover:text-primary"
                 >
                   neemahmedical@gmail.com
                 </a>
               </li>
 
-              {/* ─── WhatsApp link (in contact list) ── */}
               <li className="flex items-start gap-3 text-muted-foreground">
-                <MessageCircle className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <a
                   href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi%2C%20I%27d%20like%20to%20book%20an%20appointment`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="transition-colors hover:text-primary"
                 >
                   Chat on WhatsApp
                 </a>
               </li>
 
               <li className="flex items-start gap-3 text-muted-foreground">
-                <Clock className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span>Mon – Sat: 8:00 AM – 8:00 PM</span>
               </li>
             </ul>
-
-            {/* Socials */}
           </div>
         </div>
 
         {/* ─── Trust badges ───────────────────────── */}
-        <div className="mt-12 pt-8 border-t border-emerald-900/20 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">
-          <span className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-3 border-t border-border/60 pt-8 text-xs text-muted-foreground sm:gap-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             Licensed Medical Facility
           </span>
-          <span className="flex items-center gap-2">
-            <Heart className="h-4 w-4 text-emerald-400" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5">
+            <Heart className="h-3.5 w-3.5 text-primary" />
             Patient-First Care
           </span>
-          <span className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-emerald-400" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5">
+            <Clock className="h-3.5 w-3.5 text-primary" />
             Mon – Sat Support
           </span>
         </div>
 
         {/* ─── Bottom bar ─────────────────────────── */}
-        <div className="mt-8 pt-6 border-t border-emerald-900/20 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+        <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 text-xs text-muted-foreground md:flex-row">
           <p>© {year} Neemah Medical Centre. All rights reserved.</p>
-
-          
         </div>
       </div>
     </footer>
