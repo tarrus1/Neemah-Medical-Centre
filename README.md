@@ -1,6 +1,6 @@
-# Full Stack Doctors Appointment Platform with Next JS, Neon, Tailwind, Vonage, Shadcn UI Tutorial 🔥🔥
-## https://www.youtube.com/watch?v=ID1PRFF1dlw
+Neemah is a medical-centre platform combining doctor discovery and appointments with staff-managed patient visits, clinical departments, billing, and administration. The user-facing journey starts with sign-in or onboarding, then supports finding a doctor and booking care; in-clinic staff handle reception, triage, consultation, lab work, pharmacy, and cashiering. Server actions and Prisma provide the application’s data boundary. The README is only a brief product description, and several routes and actions were not sampled, so uncertain internal wiring is omitted.
 
-<img width="1470" alt="Screenshot 2025-05-27 at 1 18 06 PM" src="https://github.com/user-attachments/assets/a0d3d443-f5e1-433a-85a7-a76a3866858d" />
-# Neemah
-# Neemah-Medical-Centre
+
+Architecture overview
+Read
+Neemah is a medical-centre platform combining doctor discovery and appointments with staff-managed patient visits, clinical departments, billing, and administration. The user-facing journey starts with sign-in or onboarding, then supports finding a doctor and booking care; in-clinic staff handle reception, triage, consultation, lab work, pharmacy, and cashiering. Server actions and Prisma provide the application’s data boundary. The README is only a brief product description, and several routes and actions were not sampled, so uncertain internal wiring is omitted.
